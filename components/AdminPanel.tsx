@@ -90,10 +90,18 @@ export default function AdminPanel() {
   const handleAddQuestion = useCallback(
     async (newQuestion: Omit<Question, "id">) => {
       try {
+        // Create a copy of the question to modify
+        const questionToSubmit = { ...newQuestion };
+
+        // Set options to null for types that don't need options
+        if (!['multi_text', 'checkbox', 'multiple'].includes(questionToSubmit.type)) {
+          questionToSubmit.options = null;
+        }
+
         const res = await fetch("/api/questions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newQuestion),
+          body: JSON.stringify(questionToSubmit),
         })
         if (!res.ok) throw new Error("Failed to add question")
         await fetchQuestions()
@@ -102,16 +110,25 @@ export default function AdminPanel() {
         console.error("Error adding question:", error)
       }
     },
-    [fetchQuestions], // Added fetchQuestions to dependencies
+    [fetchQuestions]
   )
+
 
   const handleEditQuestion = useCallback(
     async (editedQuestion: Question) => {
       try {
-        const res = await fetch(`/api/questions/${editedQuestion.id}`, {
+        // Create a copy of the question to modify
+        const questionToSubmit = { ...editedQuestion };
+
+        // Set options to null for types that don't need options
+        if (!['multi_text', 'checkbox', 'multiple'].includes(questionToSubmit.type)) {
+          questionToSubmit.options = null;
+        }
+
+        const res = await fetch(`/api/questions/${questionToSubmit.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(editedQuestion),
+          body: JSON.stringify(questionToSubmit),
         })
         if (!res.ok) throw new Error("Failed to edit question")
         await fetchQuestions()
@@ -121,8 +138,9 @@ export default function AdminPanel() {
         console.error("Error editing question:", error)
       }
     },
-    [fetchQuestions], // Added fetchQuestions to dependencies
+    [fetchQuestions]
   )
+
 
   const handleDeleteQuestion = useCallback(
     async (id: number) => {
