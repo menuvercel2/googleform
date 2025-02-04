@@ -15,12 +15,17 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const id = params.id
-  const { text, type, required, options } = await req.json()
+  const { text, type, required, options, is_unique } = await req.json()
 
   try {
     await sql`
       UPDATE questions
-      SET text = ${text}, type = ${type}, required = ${required}, options = ${options ? JSON.stringify(options) : null}
+      SET 
+        text = ${text}, 
+        type = ${type}, 
+        required = ${required}, 
+        options = ${options ? JSON.stringify(options) : null},
+        is_unique = ${is_unique ?? false}
       WHERE id = ${id}
     `
     return NextResponse.json({ message: "Question updated successfully" })
@@ -29,4 +34,3 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
-

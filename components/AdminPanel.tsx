@@ -69,12 +69,14 @@ export default function AdminPanel() {
       const processedData = data.map((q: Question) => ({
         ...q,
         options: q.options ? (Array.isArray(q.options) ? q.options : JSON.parse(q.options)) : [],
+        is_unique: q.is_unique ?? false // Asegúrate de que is_unique tenga un valor por defecto
       }))
       setQuestions(processedData)
     } catch (error) {
       console.error("Error fetching questions:", error)
     }
   }
+
 
   const fetchAnswers = async () => {
     try {
@@ -117,29 +119,41 @@ export default function AdminPanel() {
   const handleEditQuestion = useCallback(
     async (editedQuestion: Question) => {
       try {
-        // Create a copy of the question to modify
-        const questionToSubmit = { ...editedQuestion };
-
-        // Set options to null for types that don't need options
-        if (!['multi_text', 'checkbox', 'multiple'].includes(questionToSubmit.type)) {
-          questionToSubmit.options = null;
+        // Crea una copia del objeto con los campos necesarios
+        const questionToSubmit = {
+          ...editedQuestion,
+          // Asegúrate de que is_unique se incluya explícitamente
+          is_unique: editedQuestion.is_unique ?? false,
+          // Maneja las opciones según el tipo
+          options: ['multi_text', 'checkbox', 'multiple'].includes(editedQuestion.type)
+            ? editedQuestion.options
+            : null
         }
 
-        const res = await fetch(`/api/questions/${questionToSubmit.id}`, {
+        console.log('Sending update:', questionToSubmit) // Para debugging
+
+        const res = await fetch(`/api/questions/${editedQuestion.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(questionToSubmit),
         })
-        if (!res.ok) throw new Error("Failed to edit question")
+
+        if (!res.ok) {
+          const errorData = await res.json()
+          throw new Error(errorData.message || "Failed to edit question")
+        }
+
         await fetchQuestions()
         setIsEditDialogOpen(false)
         setEditingQuestion(null)
       } catch (error) {
         console.error("Error editing question:", error)
+        // Aquí podrías añadir una notificación de error para el usuario
       }
     },
     [fetchQuestions]
   )
+
 
 
   const handleDeleteQuestion = useCallback(
