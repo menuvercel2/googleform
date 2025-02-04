@@ -17,11 +17,6 @@ interface Question {
   options?: string[] | null
 }
 
-interface GroupedResponse {
-  email: string
-  timestamp: string
-  answers: Answer[]
-}
 
 interface Answer {
   id: number
@@ -184,33 +179,34 @@ export default function AdminPanel() {
     [fetchQuestions], // Added fetchQuestions to dependencies
   )
 
-  const groupAnswersBySubmission = useCallback(() => {
-    // Primero agrupamos por email y timestamp exacto
-    const groupedByExactTime: { [key: string]: Answer[] } = {}
-
+  const groupAnswersByEmailAndDate = useCallback(() => {
+    const grouped: GroupedAnswers = {}
     answers.forEach((answer) => {
-      // Usamos el email y timestamp como clave única
-      const key = `${answer.email}-${answer.created_at}`
-      if (!groupedByExactTime[key]) {
-        groupedByExactTime[key] = []
+      const date = new Date(answer.created_at).toLocaleDateString()
+      if (!grouped[answer.email]) {
+        grouped[answer.email] = {}
       }
-      groupedByExactTime[key].push(answer)
+      if (!grouped[answer.email][date]) {
+        grouped[answer.email][date] = []
+      }
+      grouped[answer.email][date].push(answer)
     })
 
-    // Convertimos el objeto en un array y ordenamos por fecha
-    const groupedResponses = Object.entries(groupedByExactTime).map(([key, answers]) => {
-      const [email] = key.split('-')
-      const timestamp = answers[0].created_at
-      return {
-        email,
-        timestamp,
-        answers
-      }
-    }).sort((a, b) =>
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    )
+    // Sort dates for each email
+    Object.keys(grouped).forEach((email) => {
+      grouped[email] = Object.fromEntries(
+        Object.entries(grouped[email]).sort(([dateA], [dateB]) => {
+          return new Date(dateB).getTime() - new Date(dateA).getTime()
+        }),
+      )
+    })
 
-    return groupedResponses
+    // Sort emails by the most recent answer
+    return Object.entries(grouped).sort(([, answersA], [, answersB]) => {
+      const dateA = Object.keys(answersA)[0]
+      const dateB = Object.keys(answersB)[0]
+      return new Date(dateB).getTime() - new Date(dateA).getTime()
+    })
   }, [answers])
 
   const handleDragEnd = useCallback(
@@ -351,64 +347,69 @@ export default function AdminPanel() {
         <TabsContent value="responses" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Respuestas Recibidas</CardTitle>
+              <CardTitle>Respuestas Recibidas ({answers.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {answers.length === 0 ? (
                 <p className="text-center text-muted-foreground">No hay respuestas todavía</p>
               ) : (
                 <Accordion type="multiple" className="w-full">
-                  {groupAnswersBySubmission().map((submission, index) => (
-                    <AccordionItem
-                      key={`${submission.email}-${submission.timestamp}`}
-                      value={`${index}`}
-                    >
+                  {groupAnswersByEmailAndDate().map(([email, dateGroups]) => (
+                    <AccordionItem key={email} value={email}>
                       <AccordionTrigger className="hover:no-underline">
                         <div className="flex flex-col items-start">
-                          <span className="font-medium">{submission.email}</span>
+                          <span className="font-medium">{email}</span>
                           <span className="text-sm text-muted-foreground">
-                            {new Date(submission.timestamp).toLocaleString()}
+                            {Object.keys(dateGroups)[0]}
                           </span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <div className="space-y-4 pl-4">
-                          {submission.answers.map((answer) => {
-                            const question = questions.find(
-                              (q) => q.id === answer.question_id
-                            )
-                            return (
-                              <Card key={answer.id}>
-                                <CardContent className="p-4">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <p className="font-medium">
-                                        {question?.text || "Pregunta no encontrada"}
-                                      </p>
-                                      <div className="mt-2">
-                                        {answer.answer_text && (
-                                          <div className="text-muted-foreground">
-                                            {question?.type === "multi_text" ? (
-                                              <ul className="list-disc pl-5">
-                                                {JSON.parse(answer.answer_text).map(
-                                                  (text: string, index: number) => (
-                                                    <li key={index}>{text}</li>
-                                                  )
+                        {Object.entries(dateGroups).map(([date, dateAnswers]) => (
+                          <div key={date} className="mb-4">
+                            <h4 className="font-medium mb-2">Respuestas del {date}</h4>
+                            <div className="space-y-4 pl-4">
+                              {dateAnswers.map((answer) => {
+                                const question = questions.find(
+                                  (q) => q.id === answer.question_id
+                                )
+                                return (
+                                  <Card key={answer.id}>
+                                    <CardContent className="p-4">
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <p className="font-medium">
+                                            {question?.text || "Pregunta no encontrada"}
+                                          </p>
+                                          <div className="mt-2">
+                                            {answer.answer_text && (
+                                              <div className="text-muted-foreground">
+                                                {question?.type === "multi_text" ? (
+                                                  <ul className="list-disc pl-5">
+                                                    {JSON.parse(answer.answer_text).map(
+                                                      (text: string, index: number) => (
+                                                        <li key={index}>{text}</li>
+                                                      )
+                                                    )}
+                                                  </ul>
+                                                ) : (
+                                                  <p>{answer.answer_text}</p>
                                                 )}
-                                              </ul>
-                                            ) : (
-                                              <p>{answer.answer_text}</p>
+                                              </div>
                                             )}
                                           </div>
-                                        )}
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(answer.created_at).toLocaleTimeString()}
+                                        </span>
                                       </div>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )
-                          })}
-                        </div>
+                                    </CardContent>
+                                  </Card>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </AccordionContent>
                     </AccordionItem>
                   ))}
