@@ -11,6 +11,18 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PlusCircle, Minus } from "lucide-react"
 import EmailInput from "./EmailInput"
+import {
+  MoreVertical,
+  Download,
+  Settings
+} from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 
 interface Question {
   id: number
@@ -40,6 +52,19 @@ export default function FormComponent() {
       setUserEmail(savedEmail)
     }
   }, [])
+
+  const handleDownload = () => {
+    // La ruta comienza desde /public
+    const documentUrl = '/templates/solicitud.docx'
+
+    // Crear elemento temporal para la descarga
+    const link = document.createElement('a')
+    link.href = documentUrl
+    link.download = 'solicitud.docx'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   const validateUniqueAnswer = async (questionId: number, value: string) => {
     // Validación inicial
@@ -238,7 +263,26 @@ export default function FormComponent() {
   }
 
   return (
-    <Card className="w-full max-w-3xl mx-auto my-6">
+    <Card className="w-full max-w-3xl mx-auto my-6 relative">
+      <div className="absolute top-4 right-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleDownload}>
+              <Download className="mr-2 h-4 w-4" />
+              <span>Descargar solicitud</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push('/admin')}>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Administrar</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold mb-6">Base de Datos de Lípidos Catiónicos e Ionizables</CardTitle>
         <EmailInput onEmailSubmit={setUserEmail} initialEmail={userEmail} />
