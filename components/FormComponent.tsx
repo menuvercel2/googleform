@@ -53,17 +53,31 @@ export default function FormComponent() {
     }
   }, [])
 
-  const handleDownload = () => {
-    // La ruta comienza desde /public
-    const documentUrl = '/templates/solicitud.docx'
+  const handleDownload = async () => {
+    try {
+      const response = await fetch('/api/download')
+      if (!response.ok) throw new Error('Error en la descarga')
 
-    // Crear elemento temporal para la descarga
-    const link = document.createElement('a')
-    link.href = documentUrl
-    link.download = 'solicitud.docx'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+      // Obtener el blob de la respuesta
+      const blob = await response.blob()
+
+      // Crear URL temporal
+      const url = window.URL.createObjectURL(blob)
+
+      // Crear elemento temporal para la descarga
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'solicitud.docx'
+
+      // Simular clic y limpiar
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error al descargar:', error)
+      // Aquí puedes mostrar una notificación de error si lo deseas
+    }
   }
 
   const validateUniqueAnswer = async (questionId: number, value: string) => {
