@@ -13,8 +13,10 @@ interface Question {
   text: string
   type: string
   required: boolean
+  is_unique?: boolean  // Añade esta línea
   options?: string[] | null
 }
+
 
 interface Answer {
   id: number
@@ -52,6 +54,7 @@ export default function AdminPanel() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
+  const [isUnique, setIsUnique] = useState(false)
 
   useEffect(() => {
     fetchQuestions()
@@ -210,12 +213,19 @@ export default function AdminPanel() {
           </Button>
 
           <QuestionForm
-            initialQuestion={{ text: "", type: "short", required: false, options: [] }}
+            initialQuestion={{
+              text: "",
+              type: "short",
+              required: false,
+              options: [],
+              is_unique: false  // Añade esta línea
+            }}
             onSubmit={handleAddQuestion}
             isOpen={isAddDialogOpen}
             onOpenChange={setIsAddDialogOpen}
             dialogTitle="Añadir Nueva Pregunta"
           />
+
 
           <Card>
             <CardHeader>

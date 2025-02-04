@@ -12,6 +12,7 @@ interface QuestionFormProps {
     text: string
     type: string
     required: boolean
+    is_unique?: boolean  // Añade esta línea
     options?: string[]
   }
   onSubmit: (question: QuestionFormProps["initialQuestion"]) => Promise<void>
@@ -19,6 +20,7 @@ interface QuestionFormProps {
   onOpenChange: (open: boolean) => void
   dialogTitle: string
 }
+
 
 const QUESTION_TYPES = [
   { value: "short", label: "Respuesta corta" },
@@ -35,6 +37,7 @@ const QUESTION_TYPES = [
   { value: "date", label: "Fecha" },
   { value: "time", label: "Hora" },
 ]
+
 
 const QuestionForm: React.FC<QuestionFormProps> = React.memo(
   ({ initialQuestion, onSubmit, isOpen, onOpenChange, dialogTitle }) => {
@@ -78,6 +81,11 @@ const QuestionForm: React.FC<QuestionFormProps> = React.memo(
       [question, onSubmit],
     )
 
+    const handleUniqueChange = useCallback((checked: boolean) => {
+      setQuestion((prev) => ({ ...prev, is_unique: checked }))
+    }, [])
+
+
     return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
@@ -108,10 +116,27 @@ const QuestionForm: React.FC<QuestionFormProps> = React.memo(
               </Select>
 
               <div className="flex items-center space-x-2">
-                <Checkbox id="required" checked={question.required} onCheckedChange={handleRequiredChange} />
+                <Checkbox
+                  id="required"
+                  checked={question.required}
+                  onCheckedChange={handleRequiredChange}
+                />
                 <Label htmlFor="required">Obligatorio</Label>
               </div>
             </div>
+
+            {(question.type === "short" || question.type === "paragraph") && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="unique"
+                  checked={question.is_unique || false}
+                  onCheckedChange={handleUniqueChange}
+                />
+                <Label htmlFor="unique">
+                  Respuesta única (no permitir duplicados)
+                </Label>
+              </div>
+            )}
 
             {["multiple", "checkbox", "dropdown"].includes(question.type) && (
               <div className="space-y-2">

@@ -1,23 +1,50 @@
+// app/api/questions/route.ts
 import { NextResponse } from "next/server"
 import sql from "../../../../lib/db"
 
-export async function POST(req: Request) {
-  const { order } = await req.json()
-
+export async function GET() {
   try {
-    // Actualizar el orden de las preguntas en la base de datos
-    for (let i = 0; i < order.length; i++) {
-      await sql`
-        UPDATE questions
-        SET order_index = ${i}
-        WHERE id = ${order[i]}
-      `
-    }
-
-    return NextResponse.json({ message: "Question order updated successfully" })
+    const questions = await sql`
+      SELECT id, text, type, required, options, is_unique 
+      FROM questions
+    `
+    return NextResponse.json(questions)
   } catch (error) {
-    console.error("Error updating question order:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error("Error fetching questions:", error)
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    )
   }
 }
 
+export async function POST(req: Request) {
+  const { text, type, required, options, is_unique } = await req.json()
+
+  try {
+    const result = await sql`
+      INSERT INTO questions (
+        text, 
+        type, 
+        required, 
+        options,
+        is_unique
+      )
+      VALUES (
+        ${text}, 
+        ${type}, 
+        ${required}, 
+        ${options ? JSON.stringify(options) : null},
+        ${is_unique || false}
+      )
+      RETURNING *
+    `
+    return NextResponse.json(result[0])
+  } catch (error) {
+    console.error("Error creating question:", error)
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    )
+  }
+}

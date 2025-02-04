@@ -17,14 +17,18 @@ interface Question {
   text: string
   type: string
   required: boolean
+  is_unique?: boolean
   options?: string[] | null
 }
+
 
 export default function FormComponent() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [answers, setAnswers] = useState<Record<number, string | string[]>>({})
   const [userEmail, setUserEmail] = useState<string>("")
   const router = useRouter()
+  const [duplicateErrors, setDuplicateErrors] = useState<Record<number, string>>({})
+
 
   useEffect(() => {
     fetchQuestions()
@@ -33,6 +37,30 @@ export default function FormComponent() {
       setUserEmail(savedEmail)
     }
   }, [])
+
+  const checkDuplicate = async (questionId: number, answer: string) => {
+    try {
+      const response = await fetch('/api/check-duplicate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ questionId, answer }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok')
+      }
+
+      const data = await response.json()
+      return data.isDuplicate
+    } catch (error) {
+      console.error('Error checking duplicate:', error)
+      return false
+    }
+  }
+
+
 
   const fetchQuestions = async () => {
     try {
@@ -51,10 +79,36 @@ export default function FormComponent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (!userEmail) {
       alert("Por favor, ingresa tu correo electrónico antes de enviar el formulario.")
       return
     }
+
+    // Verifica si hay errores de duplicados
+    if (Object.keys(duplicateErrors).length > 0) {
+      alert("Por favor, corrige las respuestas duplicadas antes de enviar.")
+      return
+    }
+
+    // Verifica todas las respuestas únicas antes de enviar
+    for (const question of questions) {
+      if (question.is_unique && question.type === "short" || question.type === "paragraph") {
+        const answer = answers[question.id]
+        if (typeof answer === 'string' && answer.trim()) {
+          const isDuplicate = await checkDuplicate(question.id, answer)
+          if (isDuplicate) {
+            setDuplicateErrors(prev => ({
+              ...prev,
+              [question.id]: "Esta respuesta ya existe en la base de datos"
+            }))
+            alert("Se encontraron respuestas duplicadas. Por favor, revisa el formulario.")
+            return
+          }
+        }
+      }
+    }
+
     try {
       const res = await fetch("/api/submit", {
         method: "POST",
@@ -67,6 +121,7 @@ export default function FormComponent() {
       console.error("Error submitting form:", error)
     }
   }
+
 
   const handleInputChange = (questionId: number, value: string | string[]) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }))
@@ -112,21 +167,39 @@ export default function FormComponent() {
                   {question.required && <span className="text-destructive ml-1">*</span>}
                 </Label>
                 {question.type === "short" && (
-                  <Input
-                    id={`question-${question.id}`}
-                    required={question.required}
-                    onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  />
+                  <div className="space-y-2">
+                    <Input
+                      id={`question-${question.id}`}
+                      required={question.required}
+                      onChange={(e) => handleInputChange(question.id, e.target.value)}
+                      className={duplicateErrors[question.id] ? "border-red-500" : ""}
+                    />
+                    {duplicateErrors[question.id] && (
+                      <p className="text-sm text-destructive">
+                        {duplicateErrors[question.id]}
+                      </p>
+                    )}
+                  </div>
                 )}
+
                 {question.type === "paragraph" && (
-                  <textarea
-                    id={`question-${question.id}`}
-                    required={question.required}
-                    className="w-full p-2 border rounded-md"
-                    rows={4}
-                    onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  />
+                  <div className="space-y-2">
+                    <textarea
+                      id={`question-${question.id}`}
+                      required={question.required}
+                      className={`w-full p-2 border rounded-md ${duplicateErrors[question.id] ? "border-red-500" : ""
+                        }`}
+                      rows={4}
+                      onChange={(e) => handleInputChange(question.id, e.target.value)}
+                    />
+                    {duplicateErrors[question.id] && (
+                      <p className="text-sm text-destructive">
+                        {duplicateErrors[question.id]}
+                      </p>
+                    )}
+                  </div>
                 )}
+
                 {question.type === "multiple" && question.options && (
                   <RadioGroup
                     onValueChange={(value) => handleInputChange(question.id, value)}
@@ -217,7 +290,6 @@ export default function FormComponent() {
         <Button type="submit" onClick={handleSubmit} disabled={!userEmail}>
           Enviar
         </Button>
-        <p className="text-sm text-muted-foreground">Nunca compartiremos sus respuestas con nadie</p>
       </CardFooter>
     </Card>
   )
