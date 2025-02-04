@@ -4,19 +4,27 @@ import sql from "../../../lib/db"
 
 export async function POST(req: Request) {
     try {
-        const { email } = await req.json()
+        const { questionId, answer } = await req.json()
+
+        if (!questionId || !answer) {
+            return NextResponse.json(
+                { error: "questionId y answer son requeridos" },
+                { status: 400 }
+            )
+        }
 
         const existingResponse = await sql`
-        SELECT DISTINCT session_id
-        FROM answers
-        WHERE email = ${email}
-        LIMIT 1
-    `
+            SELECT 1
+            FROM answers
+            WHERE question_id = ${questionId}
+            AND answer = ${answer}
+            LIMIT 1
+        `
 
         return NextResponse.json({
-            exists: existingResponse.length > 0,
-            session_id: existingResponse[0]?.session_id
+            isDuplicate: existingResponse.length > 0
         })
+
     } catch (error) {
         console.error("Error checking duplicate response:", error)
         return NextResponse.json(

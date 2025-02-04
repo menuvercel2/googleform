@@ -28,7 +28,10 @@ export default function FormComponent() {
   const [userEmail, setUserEmail] = useState<string>("")
   const router = useRouter()
   const [duplicateErrors, setDuplicateErrors] = useState<Record<number, string>>({})
-
+  const [validationStatus, setValidationStatus] = useState<Record<number, {
+    status: 'unique' | 'duplicate' | 'checking' | null,
+    message: string
+  }>>({})
 
   useEffect(() => {
     fetchQuestions()
@@ -37,6 +40,49 @@ export default function FormComponent() {
       setUserEmail(savedEmail)
     }
   }, [])
+
+  const validateUniqueAnswer = async (questionId: number, value: string) => {
+    if (!value.trim()) {
+      setValidationStatus(prev => ({
+        ...prev,
+        [questionId]: { status: null, message: '' }
+      }))
+      return
+    }
+
+    setValidationStatus(prev => ({
+      ...prev,
+      [questionId]: { status: 'checking', message: 'Verificando...' }
+    }))
+
+    try {
+      const response = await fetch('/api/check-duplicate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ questionId, answer: value }),
+      })
+
+      if (!response.ok) throw new Error('Error en la verificación')
+
+      const { isDuplicate } = await response.json()
+
+      setValidationStatus(prev => ({
+        ...prev,
+        [questionId]: {
+          status: isDuplicate ? 'duplicate' : 'unique',
+          message: isDuplicate ? 'Duplicada' : 'Única'
+        }
+      }))
+    } catch (error) {
+      setValidationStatus(prev => ({
+        ...prev,
+        [questionId]: { status: null, message: 'Error en la verificación' }
+      }))
+    }
+  }
+
 
   const checkDuplicate = async (questionId: number, answer: string) => {
     try {
@@ -140,9 +186,20 @@ export default function FormComponent() {
 
 
 
-  const handleInputChange = (questionId: number, value: string | string[]) => {
+  const handleInputChange = async (questionId: number, value: string | string[]) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }))
+
+    const question = questions.find(q => q.id === questionId)
+    if (question?.is_unique && typeof value === 'string') {
+      // Debounce la validación para no hacer demasiadas llamadas
+      const timeoutId = setTimeout(() => {
+        validateUniqueAnswer(questionId, value)
+      }, 500) // espera 500ms después de que el usuario deje de escribir
+
+      return () => clearTimeout(timeoutId)
+    }
   }
+
 
   const handleMultiTextChange = (questionId: number, index: number, value: string) => {
     setAnswers((prev) => {
@@ -183,36 +240,63 @@ export default function FormComponent() {
                   {question.text}
                   {question.required && <span className="text-destructive ml-1">*</span>}
                 </Label>
-                {question.type === "short" && (
+                {(question.type === "short" || question.type === "paragraph") && (
                   <div className="space-y-2">
                     <Input
                       id={`question-${question.id}`}
                       required={question.required}
                       onChange={(e) => handleInputChange(question.id, e.target.value)}
-                      className={duplicateErrors[question.id] ? "border-red-500" : ""}
+                      className={
+                        validationStatus[question.id]?.status === 'duplicate'
+                          ? "border-red-500"
+                          : validationStatus[question.id]?.status === 'unique'
+                            ? "border-green-500"
+                            : ""
+                      }
                     />
-                    {duplicateErrors[question.id] && (
-                      <p className="text-sm text-destructive">
-                        {duplicateErrors[question.id]}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {question.type === "paragraph" && (
-                  <div className="space-y-2">
-                    <textarea
-                      id={`question-${question.id}`}
-                      required={question.required}
-                      className={`w-full p-2 border rounded-md ${duplicateErrors[question.id] ? "border-red-500" : ""
-                        }`}
-                      rows={4}
-                      onChange={(e) => handleInputChange(question.id, e.target.value)}
-                    />
-                    {duplicateErrors[question.id] && (
-                      <p className="text-sm text-destructive">
-                        {duplicateErrors[question.id]}
-                      </p>
+                    {question.is_unique && validationStatus[question.id] && (
+                      <div className="flex items-center gap-2 mt-1">
+                        {validationStatus[question.id].status === 'checking' && (
+                          <>
+                            <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full" />
+                            <p className="text-sm text-gray-500">
+                              Verificando...
+                            </p>
+                          </>
+                        )}
+                        {validationStatus[question.id].status === 'unique' && (
+                          <p className="text-sm text-green-600 font-medium flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            Única
+                          </p>
+                        )}
+                        {validationStatus[question.id].status === 'duplicate' && (
+                          <p className="text-sm text-red-600 font-medium flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            Duplicada
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
