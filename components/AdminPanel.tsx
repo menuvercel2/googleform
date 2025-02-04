@@ -17,13 +17,20 @@ interface Question {
   options?: string[] | null
 }
 
-
 interface Answer {
   id: number
   question_id: number
   answer_text: string
   email: string
   created_at: string
+  session_id: string  // Añade esto
+}
+
+interface Session {
+  sessionId: string
+  timestamp: string
+  email: string
+  answers: Answer[]
 }
 
 interface GroupedAnswers {
@@ -162,8 +169,6 @@ export default function AdminPanel() {
     [fetchQuestions]
   )
 
-
-
   const handleDeleteQuestion = useCallback(
     async (id: number) => {
       try {
@@ -179,35 +184,27 @@ export default function AdminPanel() {
     [fetchQuestions], // Added fetchQuestions to dependencies
   )
 
-  const groupAnswersByEmailAndDate = useCallback(() => {
-    const grouped: GroupedAnswers = {}
+  const groupAnswersBySession = useCallback(() => {
+    const sessions: { [key: string]: Session } = {}
+
     answers.forEach((answer) => {
-      const date = new Date(answer.created_at).toLocaleDateString()
-      if (!grouped[answer.email]) {
-        grouped[answer.email] = {}
+      if (!sessions[answer.session_id]) {
+        sessions[answer.session_id] = {
+          sessionId: answer.session_id,
+          timestamp: answer.created_at,
+          email: answer.email,
+          answers: []
+        }
       }
-      if (!grouped[answer.email][date]) {
-        grouped[answer.email][date] = []
-      }
-      grouped[answer.email][date].push(answer)
+      sessions[answer.session_id].answers.push(answer)
     })
 
-    // Sort dates for each email
-    Object.keys(grouped).forEach((email) => {
-      grouped[email] = Object.fromEntries(
-        Object.entries(grouped[email]).sort(([dateA], [dateB]) => {
-          return new Date(dateB).getTime() - new Date(dateA).getTime()
-        }),
-      )
-    })
-
-    // Sort emails by the most recent answer
-    return Object.entries(grouped).sort(([, answersA], [, answersB]) => {
-      const dateA = Object.keys(answersA)[0]
-      const dateB = Object.keys(answersB)[0]
-      return new Date(dateB).getTime() - new Date(dateA).getTime()
-    })
+    // Convertir a array y ordenar por timestamp descendente
+    return Object.values(sessions).sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    )
   }, [answers])
+
 
   const handleDragEnd = useCallback(
     async (result: any) => {
@@ -347,69 +344,65 @@ export default function AdminPanel() {
         <TabsContent value="responses" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Respuestas Recibidas ({answers.length})</CardTitle>
+              <CardTitle>Sesiones de Respuestas</CardTitle>
             </CardHeader>
             <CardContent>
               {answers.length === 0 ? (
-                <p className="text-center text-muted-foreground">No hay respuestas todavía</p>
+                <p className="text-center text-muted-foreground">
+                  No hay respuestas todavía
+                </p>
               ) : (
                 <Accordion type="multiple" className="w-full">
-                  {groupAnswersByEmailAndDate().map(([email, dateGroups]) => (
-                    <AccordionItem key={email} value={email}>
+                  {groupAnswersBySession().map((session) => (
+                    <AccordionItem key={session.sessionId} value={session.sessionId}>
                       <AccordionTrigger className="hover:no-underline">
                         <div className="flex flex-col items-start">
-                          <span className="font-medium">{email}</span>
+                          <span className="font-medium">
+                            Envío del {new Date(session.timestamp).toLocaleString()}
+                          </span>
                           <span className="text-sm text-muted-foreground">
-                            {Object.keys(dateGroups)[0]}
+                            {session.email} - {session.answers.length} respuestas
                           </span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        {Object.entries(dateGroups).map(([date, dateAnswers]) => (
-                          <div key={date} className="mb-4">
-                            <h4 className="font-medium mb-2">Respuestas del {date}</h4>
-                            <div className="space-y-4 pl-4">
-                              {dateAnswers.map((answer) => {
-                                const question = questions.find(
-                                  (q) => q.id === answer.question_id
-                                )
-                                return (
-                                  <Card key={answer.id}>
-                                    <CardContent className="p-4">
-                                      <div className="flex justify-between items-start">
-                                        <div>
-                                          <p className="font-medium">
-                                            {question?.text || "Pregunta no encontrada"}
-                                          </p>
-                                          <div className="mt-2">
-                                            {answer.answer_text && (
-                                              <div className="text-muted-foreground">
-                                                {question?.type === "multi_text" ? (
-                                                  <ul className="list-disc pl-5">
-                                                    {JSON.parse(answer.answer_text).map(
-                                                      (text: string, index: number) => (
-                                                        <li key={index}>{text}</li>
-                                                      )
-                                                    )}
-                                                  </ul>
-                                                ) : (
-                                                  <p>{answer.answer_text}</p>
+                        <div className="space-y-4 pl-4">
+                          {session.answers.map((answer) => {
+                            const question = questions.find(
+                              (q) => q.id === answer.question_id
+                            )
+                            return (
+                              <Card key={answer.id}>
+                                <CardContent className="p-4">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-medium">
+                                        {question?.text || "Pregunta no encontrada"}
+                                      </p>
+                                      <div className="mt-2">
+                                        {answer.answer_text && (
+                                          <div className="text-muted-foreground">
+                                            {question?.type === "multi_text" ? (
+                                              <ul className="list-disc pl-5">
+                                                {JSON.parse(answer.answer_text).map(
+                                                  (text: string, index: number) => (
+                                                    <li key={index}>{text}</li>
+                                                  )
                                                 )}
-                                              </div>
+                                              </ul>
+                                            ) : (
+                                              <p>{answer.answer_text}</p>
                                             )}
                                           </div>
-                                        </div>
-                                        <span className="text-xs text-muted-foreground">
-                                          {new Date(answer.created_at).toLocaleTimeString()}
-                                        </span>
+                                        )}
                                       </div>
-                                    </CardContent>
-                                  </Card>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )
+                          })}
+                        </div>
                       </AccordionContent>
                     </AccordionItem>
                   ))}
@@ -418,6 +411,7 @@ export default function AdminPanel() {
             </CardContent>
           </Card>
         </TabsContent>
+
 
       </Tabs>
     </div>

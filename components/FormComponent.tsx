@@ -91,9 +91,12 @@ export default function FormComponent() {
       return
     }
 
+    // Genera un session_id único para este envío
+    const sessionId = crypto.randomUUID()
+
     // Verifica todas las respuestas únicas antes de enviar
     for (const question of questions) {
-      if (question.is_unique && question.type === "short" || question.type === "paragraph") {
+      if (question.is_unique && (question.type === "short" || question.type === "paragraph")) {
         const answer = answers[question.id]
         if (typeof answer === 'string' && answer.trim()) {
           const isDuplicate = await checkDuplicate(question.id, answer)
@@ -109,18 +112,32 @@ export default function FormComponent() {
       }
     }
 
+    // Prepara las respuestas con el formato correcto
+    const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
+      question_id: parseInt(questionId),
+      answer_text: Array.isArray(answer) ? JSON.stringify(answer) : answer,
+      email: userEmail,
+      session_id: sessionId
+    }))
+
     try {
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, email: userEmail }),
+        body: JSON.stringify({
+          answers: formattedAnswers,
+          email: userEmail,
+          session_id: sessionId
+        }),
       })
+
       if (!res.ok) throw new Error("Failed to submit form")
       router.push("/thank-you")
     } catch (error) {
       console.error("Error submitting form:", error)
     }
   }
+
 
 
   const handleInputChange = (questionId: number, value: string | string[]) => {
