@@ -55,6 +55,8 @@ export default function AdminPanel() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
   const [isUnique, setIsUnique] = useState(false)
+  const [isLoadingAnswers, setIsLoadingAnswers] = useState(false)
+  const [answersError, setAnswersError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchQuestions()
@@ -79,6 +81,8 @@ export default function AdminPanel() {
 
 
   const fetchAnswers = async () => {
+    setIsLoadingAnswers(true)
+    setAnswersError(null)
     try {
       const res = await fetch("/api/answers")
       if (!res.ok) throw new Error("Failed to fetch answers")
@@ -86,8 +90,12 @@ export default function AdminPanel() {
       setAnswers(data)
     } catch (error) {
       console.error("Error fetching answers:", error)
+      setAnswersError("No se pudieron cargar las respuestas")
+    } finally {
+      setIsLoadingAnswers(false)
     }
   }
+
 
   const handleAddQuestion = useCallback(
     async (newQuestion: Omit<Question, "id">) => {
@@ -339,56 +347,79 @@ export default function AdminPanel() {
         <TabsContent value="responses" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Respuestas Recibidas</CardTitle>
+              <CardTitle>Respuestas Recibidas ({answers.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <Accordion type="multiple" className="w-full">
-                {groupAnswersByEmailAndDate().map(([email, dateGroups]) => (
-                  <AccordionItem key={email} value={email}>
-                    <AccordionTrigger className="hover:no-underline">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">{email}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {Object.values(dateGroups).flat().length} respuesta(s) - Última: {Object.keys(dateGroups)[0]}
-                        </span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4 mt-2 pl-8">
-                        {Object.values(dateGroups)
-                          .flat()
-                          .map((answer) => {
-                            const question = questions.find((q) => q.id === answer.question_id)
-                            return (
-                              <Card key={answer.id}>
-                                <CardContent className="p-4">
-                                  <p className="font-medium">{question?.text}</p>
-                                  {question?.type === "multi_text" ? (
-                                    <ul className="list-disc pl-5 mt-2">
-                                      {JSON.parse(answer.answer_text).map((text: string, index: number) => (
-                                        <li key={index} className="text-muted-foreground">
-                                          {text}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : (
-                                    <p className="text-muted-foreground mt-2">{answer.answer_text}</p>
-                                  )}
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {new Date(answer.created_at).toLocaleString()}
-                                  </p>
-                                </CardContent>
-                              </Card>
-                            )
-                          })}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+              {answers.length === 0 ? (
+                <p className="text-center text-muted-foreground">No hay respuestas todavía</p>
+              ) : (
+                <Accordion type="multiple" className="w-full">
+                  {groupAnswersByEmailAndDate().map(([email, dateGroups]) => (
+                    <AccordionItem key={email} value={email}>
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{email}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {Object.values(dateGroups).flat().length} respuesta(s) -
+                            Última: {Object.keys(dateGroups)[0]}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        {Object.entries(dateGroups).map(([date, dateAnswers]) => (
+                          <div key={date} className="mb-4">
+                            <h4 className="font-medium mb-2">Respuestas del {date}</h4>
+                            <div className="space-y-4 pl-4">
+                              {dateAnswers.map((answer) => {
+                                const question = questions.find(
+                                  (q) => q.id === answer.question_id
+                                )
+                                return (
+                                  <Card key={answer.id}>
+                                    <CardContent className="p-4">
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <p className="font-medium">
+                                            {question?.text || "Pregunta no encontrada"}
+                                          </p>
+                                          <div className="mt-2">
+                                            {answer.answer_text && (
+                                              <div className="text-muted-foreground">
+                                                {question?.type === "multi_text" ? (
+                                                  <ul className="list-disc pl-5">
+                                                    {JSON.parse(answer.answer_text).map(
+                                                      (text: string, index: number) => (
+                                                        <li key={index}>{text}</li>
+                                                      )
+                                                    )}
+                                                  </ul>
+                                                ) : (
+                                                  <p>{answer.answer_text}</p>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(answer.created_at).toLocaleTimeString()}
+                                        </span>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
+
       </Tabs>
     </div>
   )

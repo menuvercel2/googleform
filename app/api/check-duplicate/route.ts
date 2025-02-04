@@ -36,7 +36,7 @@ export async function POST(req: Request) {
         // Buscar respuestas duplicadas
         const [existingResponse] = await sql`
         SELECT id 
-        FROM responses 
+        FROM answers 
         WHERE question_id = ${questionId} 
         AND answer = ${answer}
         LIMIT 1
