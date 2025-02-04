@@ -2,39 +2,21 @@ import { NextResponse } from "next/server"
 import sql from "../../../../lib/db"
 
 export async function POST(req: Request) {
+  const { order } = await req.json()
+
   try {
-    const { orderedQuestions } = await req.json()
-
-    if (!Array.isArray(orderedQuestions)) {
-      return NextResponse.json(
-        { error: "Invalid input: orderedQuestions must be an array" },
-        { status: 400 }
-      )
-    }
-
-    // Actualizar el order_index de cada pregunta
-    for (let i = 0; i < orderedQuestions.length; i++) {
-      const question = orderedQuestions[i]
+    // Actualizar el orden de las preguntas en la base de datos
+    for (let i = 0; i < order.length; i++) {
       await sql`
-        UPDATE questions 
-        SET order_index = ${i} 
-        WHERE id = ${question.id}
+        UPDATE questions
+        SET order_index = ${i}
+        WHERE id = ${order[i]}
       `
     }
 
-    // Obtener las preguntas actualizadas
-    const updatedQuestions = await sql`
-      SELECT * 
-      FROM questions 
-      ORDER BY order_index ASC
-    `
-
-    return NextResponse.json(updatedQuestions)
+    return NextResponse.json({ message: "Question order updated successfully" })
   } catch (error) {
-    console.error("Error reordering questions:", error)
-    return NextResponse.json(
-      { error: "Failed to update question order" },
-      { status: 500 }
-    )
+    console.error("Error updating question order:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
