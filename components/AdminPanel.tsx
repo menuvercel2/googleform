@@ -358,10 +358,10 @@ export default function AdminPanel() {
                       <AccordionTrigger className="hover:no-underline">
                         <div className="flex flex-col items-start">
                           <span className="font-medium">
-                            Envío del {new Date(session.timestamp).toLocaleString()}
+                            {session.email}
                           </span>
                           <span className="text-sm text-muted-foreground">
-                            {session.email} - {session.answers.length} respuestas
+                            {new Date(session.timestamp).toLocaleString()}
                           </span>
                         </div>
                       </AccordionTrigger>
