@@ -29,13 +29,7 @@ const QUESTION_TYPES = [
   { value: "checkbox", label: "Casillas de verificación" },
   { value: "dropdown", label: "Lista desplegable" },
   { value: "multi_text", label: "Múltiples campos de texto" },
-  { value: "file", label: "Carga de archivos" },
-  { value: "scale", label: "Escala lineal" },
-  { value: "rating", label: "Calificación" },
-  { value: "multiple_grid", label: "Cuadrícula de opción múltiple" },
-  { value: "checkbox_grid", label: "Cuadrícula de casillas" },
-  { value: "date", label: "Fecha" },
-  { value: "time", label: "Hora" },
+
 ]
 
 
