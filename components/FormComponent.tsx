@@ -42,6 +42,7 @@ export default function FormComponent() {
   }, [])
 
   const validateUniqueAnswer = async (questionId: number, value: string) => {
+    // Validación inicial
     if (!value.trim()) {
       setValidationStatus(prev => ({
         ...prev,
@@ -50,38 +51,50 @@ export default function FormComponent() {
       return
     }
 
+    // Establecer estado de verificación
     setValidationStatus(prev => ({
       ...prev,
       [questionId]: { status: 'checking', message: 'Verificando...' }
     }))
 
     try {
+      // Asegúrate de que ambos valores estén definidos
+      console.log('Enviando:', { questionId, answer: value }) // Para debugging
+
       const response = await fetch('/api/check-duplicate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ questionId, answer: value }),
+        body: JSON.stringify({
+          questionId: questionId,
+          answer: value
+        }),
       })
 
-      if (!response.ok) throw new Error('Error en la verificación')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error en la verificación')
+      }
 
-      const { isDuplicate } = await response.json()
+      const data = await response.json()
 
       setValidationStatus(prev => ({
         ...prev,
         [questionId]: {
-          status: isDuplicate ? 'duplicate' : 'unique',
-          message: isDuplicate ? 'Duplicada' : 'Única'
+          status: data.isDuplicate ? 'duplicate' : 'unique',
+          message: data.isDuplicate ? 'Duplicada' : 'Única'
         }
       }))
     } catch (error) {
+      console.error('Error en validación:', error)
       setValidationStatus(prev => ({
         ...prev,
         [questionId]: { status: null, message: 'Error en la verificación' }
       }))
     }
   }
+
 
 
   const checkDuplicate = async (questionId: number, answer: string) => {
